@@ -1,6 +1,7 @@
 phases:
     install:
     build:
+        on-failure: CONTINUE
         commands:
             - echo "zipping deployment packages"
             - cd lambdas/lf-index
