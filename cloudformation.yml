@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: AWS Serverless Spec. to build stack for CCBD HW 2, Photo Searchr.
+Resources:
+  Bucket1:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: hw2fe
+      AccessControl: Public
+      VersioningConfiguration:
+        Status: Suspended
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: frontend/home.html
+        ErrorDocument: frontend/404.html
+
+  Bucket2:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: hw2be
+      AccessControl: Private
+      VersioningConfiguration:
+        Status: Suspended
+
+  IndexPhotosFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: hw2fe/lambdas/lf-index
+        S3Key: deployment_package_index.zip
+      Description: Indexes Photos
+      Role: arn:aws:iam::556808811411:role/LambdaFullAccessRole
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+  IndexPhotosFnPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref IndexPhotosFn
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub arn:aws:iam::556808811411:role/lambda-s3-trigger-role
+      SourceAccount: !Ref AWS::AccountId
+
+  SearchPhotosFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: hw2fe/lambdas/lf-search
+        S3Key: deployment_package_search.zip
+      Description: Searches Photos
+      Role: arn:aws:iam::556808811411:role/LambdaFullAccessRole
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+  SearchPhotosFnPermissionA:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref SearchPhotosFn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub === arn ===
+      SourceAccount: !Ref AWS::AccountId
+  SearchPhotosFnPermissionB:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref SearchPhotosFn
+      Principal: lexv2.amazonaws.com
+      SourceArn: !Sub === arn ===
+      SourceAccount: !Ref AWS::AccountId
+
+
+  MyOpenSearchDomain:
+    Type: 'AWS::OpenSearchService::Domain'
+    Properties:
+      DomainName: photos
+      EngineVersion: OpenSearch_1.0
+      ClusterConfig:
+        InstanceType: t2.small.search
+        InstanceCount: 1
+      EBSOptions:
+        EBSEnabled: true
+        VolumeType: gp2
+        VolumeSize: 10
+  MyApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: 'MyApi'
+      Description: 'My API Gateway'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+  MyDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn: 'MyResource'
+    Properties:
+      RestApiId: !Ref 'MyApi'
+      StageName: 'Prod'
+  MyResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref 'MyApi'
+      ParentId: !GetAtt
+        - 'MyApi'
+        - 'RootResourceId'
+      PathPart: 'myresource'
+  MyMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref 'MyApi'
+      ResourceId: !Ref 'MyResource'
+      HttpMethod: 'GET'
+      AuthorizationType: 'NONE'
+      Integration:
+        Type: 'HTTP'
+        IntegrationHttpMethod: 'GET'
+        Uri: 'http://example.com'
+        IntegrationResponses:
+          - StatusCode: 200
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
+  MyMethod:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      RestApiId: !Ref 'MyApi'
+      ResourceId: !Ref 'MyResource'
+      HttpMethod: 'POST'
+      AuthorizationType: 'NONE'
+      Integration:
+        Type: 'HTTP'
+        IntegrationHttpMethod: 'POST'
+        Uri: 'http://example.com'
+        IntegrationResponses:
+          - StatusCode: 200
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'

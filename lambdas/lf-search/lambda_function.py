@@ -7,12 +7,24 @@ from requests_aws4auth import AWS4Auth
 
 # opensearch query
 def query(keyword):
+    print('opensearch', keyword)
+    q = {
+        'size': 1000,
+        'query': {
+            'term': {
+                'labels': {
+                    'value': keyword.lower()
+                }
+            }
+        }
+    }
+
     es_client = boto3.client('opensearch')
     host = es_client.describe_domain(DomainName='photos')['DomainStatus']['Endpoint']
-    print(keyword, host)
+
     client = OpenSearch(
         hosts=[{
-            'host': host, #'search-photos-gw7y52dg2dr66pq6kgf2dhejh4.us-east-1.es.amazonaws.com'
+            'host': 'search-photos-gw7y52dg2dr66pq6kgf2dhejh4.us-east-1.es.amazonaws.com', #'search-photos-gw7y52dg2dr66pq6kgf2dhejh4.us-east-1.es.amazonaws.com'
             'port': 443
         }],
         http_auth=get_awsauth('us-east-1', 'es'),
@@ -20,19 +32,15 @@ def query(keyword):
         verify_certs=True,
         connection_class=RequestsHttpConnection
     )
-    res = client.search(index='photos', body={"query": {"match": {"_all": keyword}}})
+    res = client.search(index='photos', body=q) #{"query": {"match": {"_all": keyword}}})
     resi = res['hits']['hits']
+    print('opensearch returned', resi)
     results = []
     for hit in resi:
         results.append(hit['_source']['objectKey'])
 
-    return {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json'
-        },
-        'body': json.dumps(results)
-    }
+    print('request returning', results)
+    return results
 
 def get_awsauth(region, service):
     cred = boto3.Session().get_credentials()
@@ -45,13 +53,15 @@ def get_awsauth(region, service):
 
 client = boto3.client('lexv2-runtime')
 def lambda_handler(event, context):
-    # print(event)
-    print(event, context)
-    process_text = event['messages'][0]
-    text_for_lex = process_text["unstructured"]["text"]
-    if text_for_lex[-1].lower() == 's':
-        text_for_lex = text_for_lex[:-1]
-    # print(text_for_lex)
+
+    print('event', event)
+    try:
+        text_for_lex = event['q']
+        if text_for_lex[-1].lower() == 's':
+            text_for_lex = text_for_lex[:-1]
+        # print(text_for_lex)
+    except:
+        return []
 
     # Initiate conversation with Lex
     response = client.recognize_text(
@@ -69,19 +79,8 @@ def lambda_handler(event, context):
             q1 = queries['query1']['value']['interpretedValue']
             q2 = queries['query2']['value']['interpretedValue']
         except:
-            return {
-                'statusCode': 500,
-                'headers': {
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps([])
-            }
-    # print(q1,q2)
+            return []
 
-    # if q1 != q2:
-    #     result = [query(json.dumps(q)) for q in [q1, q2]]
-    # else:
     result = query(json.dumps(q1))
-
-    print(result)
+    print('result', result)
     return result

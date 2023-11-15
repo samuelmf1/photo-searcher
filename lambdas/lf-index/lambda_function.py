@@ -3,10 +3,13 @@ import boto3
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 
+failure = { 'statusCode':500, 'body': 'fail' }
+
 s3 = boto3.client('s3')
 client = boto3.client('rekognition')
 
 def write_to_open_search(document):
+    print(document)
     region = 'us-east-1'
     service = 'es'
     credentials = boto3.Session().get_credentials()
@@ -22,11 +25,22 @@ def write_to_open_search(document):
     )
 
     open_search.index(index="photos", body=document)
+
+    q = {
+        'size': 1000,
+        'query': {
+            'term': {
+                'labels.keyword': 'dog'
+            }
+        }
+    }
+    res = open_search.search(index='photos', body=q)['hits']['hits']
+    print(res, '*****')
     return True
 
 def detect_labels(photo, bucket):
     response = client.detect_labels(Image={'S3Object':{'Bucket':bucket,'Name':photo}}, MaxLabels=10)
-    recogniton_labels = [label["Name"] for label in response['Labels']]
+    recogniton_labels = [label['Name'] for label in response['Labels']]
     return recogniton_labels
 
 def lambda_handler(event, context):
@@ -34,25 +48,24 @@ def lambda_handler(event, context):
 
     # Get the object from the event and show its content type
     bucket = event['Records'][0]['s3']['bucket']['name']
-    key = event['Records'][0]['s3']['object']['key']
-    print(bucket, key)
+    filename = event['Records'][0]['s3']['object']['key']
+    print(f'LF given path {bucket}/{filename}')
 
     try:
-        labels = detect_labels(key, bucket)
-        print(f"Labels detected: {len(labels)}", str(labels))
         """
         Get Rekognition labels
         """
+        labels = detect_labels(filename, bucket)
+        print(f"Labels detected by AI: {len(labels)}", str(labels))
     except Exception as e:
         print(e)
+        return failure
 
     try:
-        # response = s3.get_object(Bucket=bucket, Key=key)
-        s3_response = s3.head_object(Bucket=bucket, Key=key)
+        s3_response = s3.head_object(Bucket=bucket, Key=filename)
         custom_labels = s3_response.get('Metadata', {}).get('x-amz-meta-customlabels', "[]")
         custom_labels_array = json.loads(custom_labels)
-        print(custom_labels_array)
-        print("CONTENT TYPE: " + s3_response['ContentType'])
+        print(f'Custom labels saved for photo: {custom_labels_array}')
 
         """
 
@@ -85,27 +98,23 @@ def lambda_handler(event, context):
         """
         all_labels = [s.lower() for s in labels + custom_labels_array]
         res =  {
-                "objectKey": key,
+                "objectKey": filename,
                 "bucket": bucket,
                 "createdTimestamp": event['Records'][0]['eventTime'],
                 "labels": all_labels
             }
-        print(res)
+
+        print(f'Submit the following to opensearch: {res}')
 
         r = write_to_open_search(res)
         if r:
             return {
                 'statusCode':200,
-                'body': all_labels
+                'body': 'success'
             }
         else:
-            return {
-                'statusCode':500,
-                'body': json.dumps([])
-            }
+            return failure
 
     except Exception as e:
-        print(e)
-        print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(key, bucket))
-        raise e
-
+        print('Error getting object {} from bucket {}. Make sure they exist and your bucket is in the same region as this function.'.format(filename, bucket))
+        return failure
