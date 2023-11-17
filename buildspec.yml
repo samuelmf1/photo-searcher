@@ -4,12 +4,10 @@ phases:
   install:
     commands:
       - echo "Installing dependencies"
-      # Add your installation commands here
 
   pre_build:
     commands:
       - echo "Pre-build phase"
-      # Add any pre-build commands here
 
   build:
     commands:
@@ -27,6 +25,3 @@ phases:
   post_build:
     commands:
       - echo "Post-build phase"
-      # Add any post-build commands here
-
-on-failure: CONTINUE
