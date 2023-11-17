@@ -15,7 +15,7 @@ phases:
       - zip -r9 deployment_package_index.zip *
       - aws lambda update-function-code --function-name index-photos --zip-file fileb://deployment_package_index.zip
       - echo "> updated index photos"
-      - cd ../../lf-search
+      - cd ../lf-search
       - zip -r9 deployment_package_search.zip *
       - aws lambda update-function-code --function-name search-photos --zip-file fileb://deployment_package_search.zip
     finally:
