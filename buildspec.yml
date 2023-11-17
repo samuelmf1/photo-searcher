@@ -1,13 +1,32 @@
+version: 0.2
+
 phases:
-    install:
-    build:
-        on-failure: CONTINUE
-        commands:
-            - echo "zipping deployment packages"
-            - cd lambdas/lf-index
-            - zip -r9 deployment_package_index.zip *
-            - aws lambda update-function-code --function-name index-photos --zip-file fileb://deployment_package_index.zip
-            - echo "> updated index photos"
-            - cd ../lf-search
-            - zip -r9 deployment_package_search.zip *
-            - aws lambda update-function-code --function-name search-photos --zip-file fileb://deployment_package_search.zip
+  install:
+    commands:
+      - echo "Installing dependencies"
+      # Add your installation commands here
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase"
+      # Add any pre-build commands here
+
+  build:
+    commands:
+      - echo "zipping deployment packages"
+      - cd lambdas/lf-index
+      - zip -r9 deployment_package_index.zip *
+      - aws lambda update-function-code --function-name index-photos --zip-file fileb://deployment_package_index.zip
+      - echo "> updated index photos"
+      - cd ../../lf-search
+      - zip -r9 deployment_package_search.zip *
+      - aws lambda update-function-code --function-name search-photos --zip-file fileb://deployment_package_search.zip
+    finally:
+      - echo "Build completed"
+
+  post_build:
+    commands:
+      - echo "Post-build phase"
+      # Add any post-build commands here
+
+on-failure: CONTINUE
