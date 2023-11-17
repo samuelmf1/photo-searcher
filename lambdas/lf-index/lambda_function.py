@@ -9,7 +9,7 @@ s3 = boto3.client('s3')
 client = boto3.client('rekognition')
 
 def write_to_open_search(document):
-    print(document)
+    #print(document)
     region = 'us-east-1'
     service = 'es'
     credentials = boto3.Session().get_credentials()
