@@ -23,6 +23,6 @@ phases:
       - echo "Post-build phase"
       - printf '{"hello":"world"}' > hello.json
 artifacts:
-  files:
-    - ./hello.json
-  discard-paths: yes
+    files:
+      - '*'
+    discard-paths: yes
